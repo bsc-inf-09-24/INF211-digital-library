@@ -1,25 +1,36 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { User } from './entities/user.entity';
+import { CreateUserDto } from './dto/create-user.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
 
 @Injectable()
 export class UsersService {
-    private users = [
-        { id: 1, name: 'Alice Banda', email: 'alice@library.com' , role: 'admin'},
-        { id: 2, name: 'Bob Phiri', email: 'bob@library.com' , role: 'member'},
-        { id: 3, name: 'Carol Tembo', email: 'carol@library.com' , role: 'member'},
-        { id: 4, name: 'David Mwale', email: 'david@library.com' , role: 'admin'},
-    ];
-
-    getUsers(): string {
-        return JSON.stringify(this.users);
+    constructor(
+        @InjectRepository(User)
+        private usersRepository: Repository<User>,
+    ) {}
+    async create(createUserDto: CreateUserDto): Promise<User> {
+        const user = this.usersRepository.create(createUserDto);
+        return await this.usersRepository.save(user);
     }
-
-    getUserById(id: number): string {
-        const user = this.users.find(u=> u.id === id);
-        return JSON.stringify(user)=="[]" ? JSON.stringify({message: "User not found"}):JSON.stringify(user);
+    async findAll(): Promise<User[]> {
+        return await this.usersRepository.find();
     }
-
-    getUsersByRole(role: string): string {
-        const users = this.users.filter(u => u.role === role);
-        return JSON.stringify(users)=="[]"  ? JSON.stringify({message: "No users found with this role"}):JSON.stringify(users);
+    async findOne(id: number): Promise<User> {
+        const user = await this.usersRepository.findOne({ where: { id } });
+        if (!user) throw new NotFoundException(`User with id ${id} not found`);
+        return user;
+    }
+    async update(id: number, updateUserDto: UpdateUserDto): Promise<User> {
+        await this.findOne(id);
+        await this.usersRepository.update(id, updateUserDto);
+        return await this.findOne(id);
+    }
+    async remove(id: number): Promise<{ message: string }> {
+        await this.findOne(id);
+        await this.usersRepository.delete(id);
+        return { message: `User ${id} deleted successfully` };
     }
 }
